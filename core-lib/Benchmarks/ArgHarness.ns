@@ -37,13 +37,28 @@ class ArgHarness usingPlatform: platform = Value (
   public class Benchmark fromArgs: argsDict = (
   )(
     public innerBenchmarkLoop: innerIterations numThreads: threads = (
+      | startTime endTime runTime totalTime |
+      totalTime:: 0.
+      self init.
       1 to: innerIterations do: [:i |
-        (self verifyResult: self benchmark) ifFalse: [ ^ false ].
+        self setup.
+        startTime:: system ticks.
+        self verifyResult: self benchmark.
+        endTime:: system ticks.
+        runTime:: endTime - startTime.
+        totalTime:: totalTime + runTime.
+        self teardown.
       ].
-      ^ true
+      self destroy.
+      ^totalTime.
     )
 
+    init = ()
+    setup = ()
     benchmark  = ( self subclassResponsibility )
+    teardown = ()
+    destroy = ()
+
     verifyResult: result = ( self subclassResponsibility )
 
     assert: expected equals: value = (
@@ -158,20 +173,12 @@ class ArgHarness usingPlatform: platform = Value (
       total:: 0.
     )
 
-    private measure: bench = (
-      | startTime endTime runTime temp |
-      startTime:: system ticks.
-      (bench innerBenchmarkLoop: innerIterations numThreads: numThreads) ifFalse: [
-        self error: 'Benchmark failed with incorrect result'. ].
-      endTime:: system ticks.
-      runTime:: endTime - startTime.
-      runs append: runTime.
-      total:: total + runTime.
-    )
-
     doRuns: bench = (
+      | runTime |
       1 to: numIterations do: [:i |
-        self measure: bench.
+        runTime:: bench innerBenchmarkLoop: innerIterations numThreads: numThreads.
+        runs append: runTime.
+        total:: total + runTime.
 
         maxRuntime > 0 ifTrue: [
           total > maxRuntime ifTrue: [
@@ -189,7 +196,7 @@ class ArgHarness usingPlatform: platform = Value (
           fp createDirectory.
         ].
         fp:: FilePath for: outputDir + '/' + runInfoFile.
-        cc:: Streams CharacterInputOutputConverter on: fp readWriteStream.
+        cc:: fp charOutputStream.
       ].
 
       argstmp:: ' '.
@@ -213,7 +220,9 @@ class ArgHarness usingPlatform: platform = Value (
       ('   MEAN: ' + ((total / numIterations)) + ' us').
 
       report do: [ :x |
-        x println.
+        printAll ifTrue: [
+          x println.
+        ].
         outputToFile ifTrue: [
           cc putAll: x.
           cc cr.
@@ -227,8 +236,8 @@ class ArgHarness usingPlatform: platform = Value (
         cc:: Streams CharacterInputOutputConverter on: fp readWriteStream.
         i:: 1.
         runs do: [ :x |
-          cc putAll: x asString.
-          (* cc putAll: i asString + ',' + x asString. *)
+          (* cc putAll: x asString. *)
+          cc putAll: i asString + ',' + x asString.
           cc cr.
           i:: i + 1. 
         ].
@@ -239,44 +248,72 @@ class ArgHarness usingPlatform: platform = Value (
     )
   )
 
-  processArguments: args for: run = (
+  processArguments: args = (
+    | runArgs idx arg val |
     (* First argument is the BenchmarkHarness *)
-    run name: (args at: 2).
-    run benchmarkSuite: (self loadBenchmarkSuite: (args at: 2)).
-    args size > 2 ifTrue: [
-      run numIterations: (args at: 3) asInteger.
-      args size > 3 ifTrue: [
-        run warmUp: (args at: 4) asInteger.
-        args size > 4 ifTrue: [
-          run innerIterations: (args at: 5) asInteger.
-          args size > 5 ifTrue: [
-            run numThreads: (args at: 6) asInteger
-    ] ] ] ]
+    runArgs:: Dictionary new.
+
+    args size > 2 ifTrue: [ 
+      1 to: ((args size) // 2 - 1) do: [:i | 
+        idx:: i*2.
+        arg:: (args at: idx+1).
+        val:: (args at: idx+2).
+
+        (arg beginsWith: '--') ifTrue: [
+          arg:: arg substringFrom: 3 to: arg length.
+        ].
+
+        ('1234567890' includes: (val charAt: 1)) ifTrue: [
+          val:: val asInteger.
+        ].
+
+        (val = 'true') ifTrue: [
+          val:: true.
+        ].
+
+        (val = 'false') ifTrue: [
+            val:: false.
+        ].
+
+        runArgs at: arg put: val.
+      ].
+    ].
+
+    ^ runArgs
   )
 
   public main: args = (
-    | run |
+    | run runArgs |
     args size < 2 ifTrue: [ self printUsage. ^ 1 ].
-
-    run:: Run fromArgs: Dictionary new.
-    self processArguments: args for: run.
+    runArgs:: processArguments: args.
+    run:: Run name: (args at: 2) benchmarkSuite: (self loadBenchmarkSuite: (args at: 2)) fromArgs: runArgs.
 
     run runBenchmark.
     ^ 0
   )
 
   printUsage = (
-    './som core-lib/Benchmarks/Harness.ns [benchmark] [num-iterations [warm-up [inner-iter [num-threads]]]' println.
+    './som core-lib/Benchmarks/Harness.ns [benchmark] [--Argument value]...' println.
     '' println.
     '  benchmark      - benchmark file name or class name (supports nested classes with ".") ' println.
     '                   file name examples: core-lib/Benchmark/Queens.ns' println.
     '                   class name examples: Queens, Fibonacci, Sort.QuickSort, LanguageFeatures.Dispatch' println.
-    '  num-iterations - number of times to execute benchmark, default: 1' println.
-    '  warm-up        - number of times to execute benchmark before measuring, default: 0' println.
-    '  inner-iter     - number of times the benchmark is executed in an inner loop, ' println.
+    '  Arguments:' println.
+    '     numIterations - number of times to execute benchmark, default: 1' println.
+    '     warmUp        - number of times to execute benchmark before measuring, default: 0' println.
+    '     innerIterations     - number of times the benchmark is executed in an inner loop, ' println.
     '                   which is measured in total, default: 1' println.
-    '  num-threads    - number of threads that run the benchmark' println.
+    '     numThreads    - number of threads that run the benchmark, default: 1' println.
+    '     maxRuntime    - time limit for the benchmark or 0 for no time limit, default: 0' println.
+    '     printAll      - print runinfo output to terminal, default: true' println.
+    '     outputToFile  - output individual run times to file, default: false' println.
+    '     outputDir     - directory to output files to, gets created if it does not exist, default: .' println.
+    '     outputFile    - file to output run times to, default: generated from benchmark name + time + .csv' println.
+    '     runInfoFile   - file to output run info to, default: generated from benchmark name + time + .info' println.
+    '' println.
+    '  Any additional Arguments are passed to the benchmark' println.
   )
+
 
   loadFile: fileName = (
     | cls = system loadModule: fileName. |

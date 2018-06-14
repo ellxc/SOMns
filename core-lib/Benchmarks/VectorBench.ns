@@ -1,5 +1,6 @@
 class VectorBench usingPlatform: platform andHarness: harness = Value (
-| private Benchmark = harness Benchmark.
+| private Harness = harness.
+  private Benchmark = harness Benchmark.
   private Vector    = platform kernel Vector.
   private Array     = platform kernel Array.
   private Dictionary     = platform collections Dictionary.
@@ -8,17 +9,51 @@ class VectorBench usingPlatform: platform andHarness: harness = Value (
 
     public class VectorAppend fromArgs: args = Benchmark (
         | private args = args.
+          (* size: number of appends to perfrom on a new vector in each benchmark *)
           private size = args at: 'size' ifAbsent: 10. 
-          private block = args at: 'block' ifAbsent: [[:i | i]]. |
+          (* block: evaluated to use as the value for each append *)
+          private block = args at: 'block' ifAbsent: [[:i | i]]. 
+          private a ::= nil. |
     )(
+        public setup = (
+            a:: Vector new.
+        )
+
         benchmark = (
-            | a = Vector new. |
             1 to: size do: [:i | a append: (block value: i).].
             ^ a size.
         )
 
-        public verifyResult: result = (
-            ^ size = result
+        verifyResult: result = (
+            assert: size equals: result
+        )
+    ) : (
+    public newInstance = ( ^ self fromArgs: Dictionary new. )
+    public newInstance: args = ( ^ self fromArgs: args )
+    public setupVerifiedRun: run = ( run innerIterations: 1 )
+    )
+
+    public class VectorAppendCont fromArgs: args = Benchmark (
+        | private args = args.
+          (* block: evaluated to use as the value for each append *)
+          private block = args at: 'block' ifAbsent: [[:z | z]]. 
+          private a ::= nil. 
+          private i ::= nil. |
+    )(
+
+        public setup = (
+            a:: Vector new.
+            i:: 0.
+        )
+
+        benchmark = (
+            i:: i + 1.
+            a append: (block value: i).
+            ^ a size.
+        )
+
+        verifyResult: result = (
+            assert: i equals: result
         )
     ) : (
     public newInstance = ( ^ self fromArgs: Dictionary new. )
@@ -26,12 +61,54 @@ class VectorBench usingPlatform: platform andHarness: harness = Value (
     public setupVerifiedRun: run = ( run innerIterations: 1 )
     )
     
+    public class VectorRemove fromArgs: args = Benchmark (
+        | private args = args.
+          (* size: size of vector to remove from *)
+          private size = args at: 'size' ifAbsent: 10.
+          (* block: evaluated to use as the value for each append when setting up the vector *)
+          private seed = args at: 'seed' ifAbsent: 56432.
+          private random = Harness Random new: seed.
+          private block = args at: 'block' ifAbsent: [[:z | random next.]]. 
+          a ::= nil. |
+    )(
+
+        public setup = (
+            a:: Vector new: size.
+            size timesRepeat: [ :i | 
+                        a append: (block value: i)
+            ].
+        )
+
+        benchmark = (
+            0 to: (size - 1) do: [:i | a remove.].
+            ^ a size.
+        )
+
+        verifyResult: result = (
+            assert: 0 equals: result
+        )
+    ) : (
+    public newInstance = ( ^ self fromArgs: Dictionary new. )
+    public newInstance: args = ( ^ self fromArgs: args )
+    public setupVerifiedRun: run = ( run innerIterations: 1 )
+    )
 
     public class VectorIter fromArgs: args = Benchmark(
         | private args = args.
+          (* size: size of vector to iterate over *)
           private size = args at: 'size' ifAbsent: 10.
-          a = Array new: size. |
+          (* block: evaluated to use as the value for each append when setting up the vector *)
+          private block = args at: 'block' ifAbsent: [[:z | z]]. 
+          a ::= nil. |
         )(
+
+        public setup = (
+            a:: Vector new: size.
+            size timesRepeat: [ :i | 
+                        a append: (block value: i)
+            ].
+        )
+
         benchmark = (
             | count |
             count:: 0.
@@ -39,8 +116,8 @@ class VectorBench usingPlatform: platform andHarness: harness = Value (
             ^count
         )
 
-        public verifyResult: result = (
-            ^ size = result
+        verifyResult: result = (
+            assert: size equals: result
         )
     ) : (
     public newInstance = ( ^ self fromArgs: Dictionary new. )
