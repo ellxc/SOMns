@@ -1,0 +1,50 @@
+class VectorBench usingPlatform: platform andHarness: harness = Value (
+| private Benchmark = harness Benchmark.
+  private Vector    = platform kernel Vector.
+  private Array     = platform kernel Array.
+  private Dictionary     = platform collections Dictionary.
+|
+)(
+
+    public class VectorAppend fromArgs: args = Benchmark (
+        | private args = args.
+          private size = args at: 'size' ifAbsent: 10. 
+          private block = args at: 'block' ifAbsent: [[:i | i]]. |
+    )(
+        benchmark = (
+            | a = Vector new. |
+            1 to: size do: [:i | a append: (block value: i).].
+            ^ a size.
+        )
+
+        public verifyResult: result = (
+            ^ size = result
+        )
+    ) : (
+    public newInstance = ( ^ self fromArgs: Dictionary new. )
+    public newInstance: args = ( ^ self fromArgs: args )
+    public setupVerifiedRun: run = ( run innerIterations: 1 )
+    )
+    
+
+    public class VectorIter fromArgs: args = Benchmark(
+        | private args = args.
+          private size = args at: 'size' ifAbsent: 10.
+          a = Array new: size. |
+        )(
+        benchmark = (
+            | count |
+            count:: 0.
+            a do: [:i | count:: (count + 1)].
+            ^count
+        )
+
+        public verifyResult: result = (
+            ^ size = result
+        )
+    ) : (
+    public newInstance = ( ^ self fromArgs: Dictionary new. )
+    public newInstance: args = ( ^ self fromArgs: args )
+    public setupVerifiedRun: run = ( run innerIterations: 1 )
+    )
+)

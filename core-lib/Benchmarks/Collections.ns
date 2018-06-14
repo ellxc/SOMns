@@ -1,0 +1,67 @@
+
+class Collections usingPlatform: platform = (
+| private platform = platform.
+  private harness  = (platform system loadModule: 'ArgHarness.ns' nextTo: self) usingPlatform: platform.
+  private system   = platform system.
+  private ObjectMirror = platform mirrors ObjectMirror.
+  private Run      = harness Run.
+  private Dictionary = platform collections Dictionary.
+  private Vector  = platform kernel Vector.
+  summedAverages ::= 0. |
+)(
+
+  all = (
+    | default runs |
+    default:: 'numIterations', 100, 'warmUp', 100, 'outputToFile', true.
+    runs:: Vector new.
+
+    1 to: 1 do: [ :i |
+      runs append: (run: 'VectorAppend' in: 'VectorBench' args:  default, 'size', (i*100))
+    ].
+
+    ^ runs
+  )
+
+  loadModule: name = (
+    | file cls |
+    file:: name + '.ns'.
+    cls:: system loadModule: file nextTo: self.
+    ^ cls usingPlatform: platform andHarness: harness.
+  )
+
+  run: name in: moduleName args: args = (
+    | suite cls |
+    suite:: self loadModule: moduleName.
+    cls:: (ObjectMirror reflecting: suite) perform: name asSymbol.
+
+    ^ self createRun: cls named: name args: args
+  )
+
+  run: name args: args = (
+    | suite run |
+    suite:: self loadModule: name.
+    ^ self createRun: suite named: name args: args.
+  )
+
+  createRun: bench named: name args: args = (
+    | run idx runArgs|
+    runArgs:: Dictionary new.
+    0 to: ((args size) // 2 - 1) do: [:i | idx:: i*2.
+    runArgs at: (args at: idx+1) put: (args at: idx+2)].
+    run:: Run name: name benchmarkSuite: bench fromArgs: runArgs.
+    run printAll: (run args at: 'printAll' ifAbsent: false).
+    bench setupVerifiedRun: run.
+    ^ run
+  )
+
+  runAll = (
+    all do: [:run |
+      run runBenchmark.
+    ].
+  )
+
+  public main: args = (
+    runAll.
+    ^ 0
+  )
+)
