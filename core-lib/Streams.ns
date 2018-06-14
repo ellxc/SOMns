@@ -748,7 +748,7 @@ DAMAGE.>> *)
 				nextBufferPosition:: pos.
 				bufferNumElements:: (pos max: bufferNumElements).
 				pos >= self bufferSize
-						ifTrue: [    self writeBuffer; advanceBuffer; dirty: false. ]
+						ifTrue: [    self writeBuffer. advanceBuffer. self dirty: false. ]
 						ifFalse: [ self dirty: true ].
 				^byte
 		)
