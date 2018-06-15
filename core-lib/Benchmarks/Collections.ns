@@ -2,55 +2,44 @@
 class Collections usingPlatform: platform = (
 | private platform = platform.
   private harness  = (platform system loadModule: 'ArgHarness.ns' nextTo: self) usingPlatform: platform.
-  private system   = platform system.
-  private ObjectMirror = platform mirrors ObjectMirror.
   private Run      = harness Run.
   private Dictionary = platform collections Dictionary.
   private Vector  = platform kernel Vector.
   summedAverages ::= 0. |
 )(
 
+  pow: a x: b = (
+    (b = 0) ifTrue: [
+      ^1.
+    ].
+    (b = 1) ifTrue: [
+      ^a.
+    ].
+    ^ a * (pow: a x: (b - 1))
+  )
+
   all = (
     | default runs |
-    default:: 'numIterations', 100, 'warmUp', 100, 'outputToFile', true.
+    default:: 'numIterations', 10000, 'warmUp', 10000, 'outputToFile', true.
     runs:: Vector new.
 
-    1 to: 1 do: [ :i |
-      runs append: (run: 'VectorAppend' in: 'VectorBench' args:  default, 'size', (i*100))
+    (* 0 to: 2 do: [ :i |
+      runs append: (createRun: 'VectorBench.VectorAppend' args:  default, 'innerIterations', (1 * (pow: 10 x: i)), 'foo', 'bar')
+    ]. *)
+
+    0 to: 0 do: [ :i |
+      runs append: (createRun: 'VectorBench.VectorAppend' args:  default, 'persist', true)
     ].
 
     ^ runs
   )
 
-  loadModule: name = (
-    | file cls |
-    file:: name + '.ns'.
-    cls:: system loadModule: file nextTo: self.
-    ^ cls usingPlatform: platform andHarness: harness.
-  )
-
-  run: name in: moduleName args: args = (
-    | suite cls |
-    suite:: self loadModule: moduleName.
-    cls:: (ObjectMirror reflecting: suite) perform: name asSymbol.
-
-    ^ self createRun: cls named: name args: args
-  )
-
-  run: name args: args = (
-    | suite run |
-    suite:: self loadModule: name.
-    ^ self createRun: suite named: name args: args.
-  )
-
-  createRun: bench named: name args: args = (
+  createRun: name args: args = (
     | run idx runArgs|
     runArgs:: Dictionary new.
     0 to: ((args size) // 2 - 1) do: [:i | idx:: i*2.
     runArgs at: (args at: idx+1) put: (args at: idx+2)].
-    run:: Run name: name benchmarkSuite: bench fromArgs: runArgs.
-    run printAll: (run args at: 'printAll' ifAbsent: false).
-    bench setupVerifiedRun: run.
+    run:: Run name: name benchmarkSuite: nil fromArgs: runArgs.
     ^ run
   )
 

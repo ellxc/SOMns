@@ -39,25 +39,25 @@ class ArgHarness usingPlatform: platform = Value (
     public innerBenchmarkLoop: innerIterations numThreads: threads = (
       | startTime endTime runTime totalTime |
       totalTime:: 0.
-      self init.
+      self setup.
       1 to: innerIterations do: [:i |
-        self setup.
+        self before.
         startTime:: system ticks.
         self verifyResult: self benchmark.
         endTime:: system ticks.
         runTime:: endTime - startTime.
         totalTime:: totalTime + runTime.
-        self teardown.
+        self after.
       ].
-      self destroy.
+      self teardown.
       ^totalTime.
     )
 
-    init = ()
     setup = ()
+    before = ()
     benchmark  = ( self subclassResponsibility )
+    after = ()
     teardown = ()
-    destroy = ()
 
     verifyResult: result = ( self subclassResponsibility )
 
@@ -135,6 +135,7 @@ class ArgHarness usingPlatform: platform = Value (
       public outputFile      ::= args at: 'outputFile' ifAbsent: name + time + '.csv'.
       public runInfoFile     ::= args at: 'runInfoFile' ifAbsent: name + time + '.info'.
     |
+    (nil = benchmarkSuite) ifTrue: [benchmarkSuite: (loadBenchmarkSuite: name)].
   )(
 
     public runBenchmark = (
@@ -331,7 +332,7 @@ class ArgHarness usingPlatform: platform = Value (
     ^ cls usingPlatform: platform andHarness: self.
   )
 
-  loadBenchmarkSuite: className = (
+  public loadBenchmarkSuite: className = (
     | file module nested |
     (className endsWith: '.ns')
       ifTrue: [ ^ self loadFile: className ].
