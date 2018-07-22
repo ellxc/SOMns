@@ -1,0 +1,123 @@
+
+
+class CircularVector usingKernel: kernel = Value (
+| private Array  = kernel Array.
+  private initialSize = 10.
+|
+)(
+
+
+    class CircularVector new: size = (
+    |
+        private firstIdx ::= 1.
+        private lastIdx ::= 1.
+        public storage ::= Array new: size. 
+    |
+    )(
+
+        public size     = ( ^ lastIdx - firstIdx   )
+        public capacity = ( ^ storage size )
+        public isEmpty = ( ^ lastIdx = firstIdx )
+        public isFull = ( ^ size = capacity )
+
+        checkIdx: Idx = (
+            (Idx >= 1) && (Idx <= size) ifFalse: [
+                IndexOutOfBounds signalWith: Idx
+            ].
+        )
+
+        private adjustIdx: Idx = (
+            Idx < 0 ifTrue: [
+                ^ ((Idx % capacity) + capacity + firstIdx - 1) % capacity
+            ].
+            ^ (Idx + firstIdx - 1) % capacity
+        )
+
+        public at: Idx = (
+            checkIdx: Idx.
+            ^ storage at: (adjustIdx: Idx)
+        )
+
+        public at: Idx put: element = (
+            checkIdx: Idx.
+            storage at: (adjustIdx: Idx) put: element.
+        )
+
+        public first = ( ^ isEmpty ifTrue: [nil] ifFalse: [at: firstIdx] )
+
+        public last = ( ^ isEmpty ifTrue: [nil] ifFalse: [at: lastIdx] )
+
+        public do: block = (
+            1 to: lastIdx - firstIdx do: [ :i | block value: (storage at: (adjustIdx: i)) ]
+        )
+
+        public resize: newSize = (
+            | newStorage tsize |
+            newStorage:: Array new: newSize.
+
+            size < newSize ifTrue: [
+                tsize:: size
+            ] ifFalse: [
+                tsize:: newSize
+            ].
+            1 to: tsize do: [ :i | newStorage at: i put: (at: i)].
+            storage:: newStorage.
+            lastIdx:: size+1.
+            firstIdx:: 1.
+        )
+
+        public shrink = (
+            resize: size.
+        )
+
+        public append: element = (
+            isFull ifTrue: [ resize: capacity * 2 ].
+
+            lastIdx:: lastIdx + 1.
+            at: lastIdx put: element.
+        )
+
+        public appendAll: collection = (
+            collection do: [:e | 
+                append: e 
+            ]
+        )
+
+        public prepend: element = (
+            isFull ifTrue: [ resize: capacity * 2 ].
+
+            firstIdx = 1 ifTrue: [
+                firstIdx:: capacity.
+                lastIdx:: lastIdx + capacity.
+            ] ifFalse: [
+                firstIdx:: firstIdx - 1.
+            ].
+
+            at: 1 put: element.
+        )
+
+        public prependAll: collection = (
+            collection do: [:e | 
+                prepend: e
+            ]
+        )
+
+        public popLast = (
+            isEmpty ifTrue: [ self error: 'Vector is empty' ].
+
+            lastIdx:: lastIdx - 1.
+            ^ storage at: (adjustIdx: lastIdx + 1)
+        )
+
+        public popFirst = (
+            isEmpty ifTrue: [ self error: 'Vector is empty' ].
+            
+            firstIdx:: firstIdx + 1.
+            ^ storage at: firstIdx - 1
+        )
+
+
+    ): (
+        public new = ( ^ self new: initialSize )
+    )
+)
