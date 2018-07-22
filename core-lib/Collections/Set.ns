@@ -1,0 +1,158 @@
+
+
+class Set usingKernal: kernal = (
+| 
+    private Array  = kernel Array.
+    private Vector = kernel Vector.
+|
+)(
+    public class Set new: size = (
+        | 
+            public items ::= Vector new: size. 
+        |
+    ) (
+        
+        public = otherSet = (
+            self size = otherSet size ifFalse: [
+                ^ false 
+            ].
+            self do: [ :item | 
+                (otherSet contains: item) ifFalse: [
+                    ^ false
+                ]. 
+            ].
+            ^ true.
+        )
+
+        public add: anObject = (
+            (self contains: anObject) ifFalse: [ 
+                items append: anObject 
+            ]
+        )
+
+        public addAll: aCollection = (
+            aCollection do: [:each |
+                self add: each
+            ]
+        )
+
+        public union: aCollection = (
+            | new |
+            new:: Set new.
+            new addAll: self.
+            new addAll: aCollection.
+            ^ new
+        )
+
+        public intersection: aCollection = (
+            | new |
+            new:: Set new.
+            self do: [:it |
+                (aCollection contains: it) ifTrue: [ 
+                    new add: it 
+                ]
+            ].
+            ^ new
+        )
+
+        public - aCollection = ( (* set difference *)
+            | new |
+            new:: Set new.
+            self do: [:it |
+                (aCollection contains: it) ifFalse: [ 
+                    new add: it 
+                ]
+            ].
+            ^ new
+        )
+
+        public contains: anObject = (
+            items do: [ :it | 
+                it = anObject ifTrue: [ 
+                    ^ true 
+                ]
+            ].
+            ^ false
+        )
+
+        public remove: anObject = (
+            | newItems |
+            newItems:: Vector new.
+            [ items isEmpty ] whileFalse: [ 
+                | it |
+                it:: items remove.
+                it = anObject ifFalse: [ 
+                    newItems append: it 
+                ] 
+            ].
+            items:: newItems
+        )
+
+        (* Sets do not have the notion of ordering, but
+        for convenience we provide those accessors *)
+        public first = (
+            ^ items at: 1
+        )
+
+        public isEmpty = (
+            ^ items isEmpty
+        )
+
+        (* Iteration *)
+        public do: block = ( items do: block )
+
+        (* Collection *)
+        public collect: block = ( 
+            | coll |
+            coll:: Vector new.
+            self do: [ :e | 
+                coll append: (block value: e) 
+            ].
+            ^coll
+        )
+
+        (* Printing *)
+        public println = (
+            '(' print.
+            self do: [ :it | 
+                '(' print. it print. ')' print 
+            ].
+            ')' println
+        )
+
+        public asString = (
+            | result |
+            result:: 'a Set('.
+            items do: [:e | 
+                result:: result + e asString + ', '
+            ].
+            result:: result + ')'.
+            ^ result
+        )
+
+        public size = (
+            ^ items size
+        )
+
+        (* preserves capacity *)
+        public removeAll = (
+            items removeAll
+        )
+    ) : (
+        public new = ( ^ self new: initialSize )
+    )
+
+    public class IdentitySet new: size = Set new: size ()(
+        public contains: anObject = (
+            items do: [ :it | 
+                it == anObject ifTrue: [ 
+                    ^ true 
+                ]
+            ].
+            ^ false
+        )
+    ) : (
+        public new = ( ^ self new: initialSize )
+    )
+
+)
